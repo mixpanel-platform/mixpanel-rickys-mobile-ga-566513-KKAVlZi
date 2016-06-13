@@ -1602,7 +1602,7 @@
             paramString.split('&').forEach(function(item) {
                 this.appParams[item.split("=")[0]] = decodeURIComponent(item.split("=")[1]);
             }, this);
-        }
+        },
         
         // deprecated
         ready: function (callback) {
