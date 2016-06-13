@@ -1638,6 +1638,35 @@
         },
       })
     );
+    getQueryOptions: function (endpoint, params, settings_or_callback, dataFilter) {
+        var query = MPQuery.inst({
+            api: this,
+            endpoint: endpoint,
+            params: params,
+            callback: settings_or_callback,
+            dataFilter: dataFilter
+        });
+        query.prepareParams(this.apiKey, this.apiSecret);
+        return {
+            endpoint: query.endpoint,
+            queryOptions: query.queryOptions
+        };
+    },
+
+    _formatPropertiesParam: function (property) {
+        return !/(properties\[)/.test(property) ? 'properties["' + property + '"]' : property;
+    },
+
+    _parseAppParams: function () {
+        this.appParams = {};
+
+        // Read GET parameters
+        var paramString = window.location.href.slice(window.location.href.indexOf('?') + 1);
+        paramString = paramString.replace(/\+/g, '%20');
+        paramString.split('&').forEach(function(item) {
+            this.appParams[item.split("=")[0]] = decodeURIComponent(item.split("=")[1]);
+        }, this);
+    }
     var MPAPI = new (MPPlatformApi.extend())();
     
     debugger
