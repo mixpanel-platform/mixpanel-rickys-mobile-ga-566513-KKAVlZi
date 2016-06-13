@@ -9,6 +9,130 @@
   <body class="mixpanel-platform-body">
     <h1>Hello, World!</h1>
     <script>
+    var MPObject = {
+        create: function (properties) {
+            var prot = this.prototype || this;
+            return _.extend(Object.create(prot), properties);
+        },
+    
+        extend: function (properties, staticProps) {
+            function f() {
+                return f.inst.apply(f, arguments);
+            }
+            f.prototype = this.create(properties);
+            _.extend(f.prototype, staticProps);
+            _.extend(f, this, staticProps);
+            return f;
+        },
+    
+        inst: function () {
+            var prot = this.prototype || this;
+            var ob = prot.create();
+            ob.initialize.apply(ob, arguments);
+            return ob;
+        },
+    
+        initialize: function () {
+    
+        }
+    };
+    
+    var MPPlatformApi = _.extend(MPObject.create({
+    
+        MAX_SIMULTANEOUS_QUERIES: 2,
+    
+        initialize: function (apiKey, apiSecret, options) {
+            this.options = options || {};
+            this._queryQueue = [];
+            this._ready = false;
+            this._running = [];
+    
+            window.onmessage = _.bind(function(message) {
+                if (_.isString(message.data.api_secret)) {
+                    if (_.isString(message.data.api_key)) {
+                        this.setCredentials(message.data.api_key, message.data.api_secret);
+                    } else {
+                        this.setCredentials(message.data.api_secret);
+                    }
+                }
+            }, this);
+    
+            this._parseAppParams();
+    
+            if (apiSecret) {
+                if (apiKey) {
+                    this.setCredentials(apiKey, apiSecret);
+                } else {
+                    this.setCredentials(apiSecret);
+                }
+            } else {
+                var query = {};
+                var comps = window.location.search.slice(1).split('&');
+                _.safeEach(comps, function (comp) {
+                    comp = comp.split('=');
+                    query[comp[0]] = comp[1];
+                });
+                if (query.api_secret) {
+                    if (query.api_key) {
+                        this.setCredentials(query.api_key, query.api_secret);
+                    } else {
+                        this.setCredentials(query.api_secret);
+                    }
+                }
+            }
+        },
+    
+        // deprecated
+        ready: function (callback) {
+            console.warn('MP.api.ready() has been deprecated as of v0.0.43 and will be removed as of v1.0.0. It is no longer necessary and can be safely removed from your reports.');
+            callback(); // call immediately so the query gets added to this._queryQueue
+        },
+    
+        setCredentials: function (apiKey, apiSecret) {
+            if (arguments.length === 1) {
+                // If there's a single argument, assume it's apiSecret
+                this.apiSecret = arguments[0];
+                this.apiKey = null;
+            } else {
+                this.apiSecret = apiSecret;
+                this.apiKey = apiKey;
+            }
+            this.trigger('mpplatform.credentialsRegistered');
+            this._ready = true;
+            this._checkQueryQueue();
+        },
+    
+        // start next query if one is waiting and less than MAX_SIMULTANEOUS_QUERIES are currently running
+        _checkQueryQueue: function() {
+            if (this._queryQueue.length && this._ready) {
+                if (this._running.length < this.MAX_SIMULTANEOUS_QUERIES) {
+                    var nextQuery = this._queryQueue.shift();
+                    this._running.push(nextQuery);
+                    this.trigger('mpplatform.queryStart');
+                    nextQuery.run(this.apiKey, this.apiSecret)
+                        .always(_.bind(function() {
+                            this.trigger('mpplatform.queryEnd');
+                            this._running.splice(this._running.indexOf(nextQuery), 1);
+                            this._checkQueryQueue();
+                        }, this))
+                        .fail(_.bind(function() {
+                            this.trigger('mpplatform.queryError');
+                        }, this));
+                }
+            }
+        },
+    
+        option: function(key, val) {
+            if (val === undefined) {
+                return key;
+            } else {
+                this.options[key] = val;
+            }
+        },
+      })
+    );
+    var MPAPI = new (MPPlatformApi.extend())();
+    
     debugger
       // Run queries and display results here
     </script>
